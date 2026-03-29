@@ -6,13 +6,15 @@ class Trnscrb < Formula
   license "MIT"
   head "https://github.com/artback/trnscrb.git", branch: "main"
 
+  depends_on "python@3.12"
   depends_on "uv"
   depends_on :macos
 
   def install
+    python = Formula["python@3.12"].opt_bin / "python3.12"
     venv = libexec / "venv"
-    system "uv", "venv", venv.to_s, "--python", "3.12"
-    system "uv", "pip", "install", "--python", venv / "bin" / "python", buildpath.to_s
+    system "uv", "venv", venv.to_s, "--python", python.to_s
+    system "uv", "pip", "install", "--python", (venv / "bin" / "python").to_s, buildpath.to_s
     (bin / "trnscrb").write_env_script venv / "bin" / "trnscrb", PATH: "#{venv}/bin:$PATH"
   end
 
