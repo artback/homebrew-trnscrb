@@ -16,11 +16,21 @@ class Trnscrb < Formula
     system "uv", "venv", venv.to_s, "--python", python.to_s
     system "uv", "pip", "install", "--python", (venv / "bin" / "python").to_s, buildpath.to_s
     (bin / "trnscrb").write_env_script venv / "bin" / "trnscrb", PATH: "#{venv}/bin:$PATH"
+
+    # Build the Trnscrb.app wrapper so macOS attributes permission prompts
+    # (Screen Recording, Microphone, Automation) to "Trnscrb" instead of the
+    # invoking terminal. `trnscrb install` copies it into ~/Applications.
+    # The module ships with trnscrb >= 0.10.0.
+    if (buildpath / "trnscrb" / "app_bundle.py").exist?
+      system venv / "bin" / "python", "-m", "trnscrb.app_bundle",
+             prefix / "Trnscrb.app", opt_bin / "trnscrb"
+    end
   end
 
   def caveats
     <<~EOS
-      To start trnscrb automatically on login:
+      Run the setup wizard (permissions, models, launch at login,
+      and the ~/Applications/Trnscrb.app permission wrapper):
         trnscrb install
 
       Or launch now with:
@@ -29,7 +39,7 @@ class Trnscrb < Formula
   end
 
   service do
-    run [opt_bin / "trnscrb", "start"]
+    run [opt_prefix / "Trnscrb.app/Contents/MacOS/Trnscrb"]
     keep_alive false
     log_path var / "log/trnscrb.log"
     error_log_path var / "log/trnscrb.err"
