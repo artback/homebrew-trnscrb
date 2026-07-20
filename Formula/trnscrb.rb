@@ -6,6 +6,7 @@ class Trnscrb < Formula
   license "MIT"
   head "https://github.com/artback/trnscrb.git", branch: "main"
 
+  depends_on "ffmpeg"
   depends_on "python@3.12"
   depends_on "uv"
   depends_on :macos
