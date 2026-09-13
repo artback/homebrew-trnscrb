@@ -26,6 +26,51 @@ class Trnscrb < Formula
       system venv / "bin" / "python", "-m", "trnscrb.app_bundle",
              prefix / "Trnscrb.app", opt_bin / "trnscrb"
     end
+
+    # Homebrew relocates the keg's Mach-O files after `install` returns,
+    # rewriting their load commands in place. That edit invalidates the ad-hoc
+    # signature each file shipped with, and macOS refuses to load a library
+    # whose signature no longer matches its contents — which is how the
+    # vendored audio libraries came to kill the MCP server on a fresh install.
+    # `post_install_steps` runs this script after the relocation pass, so the
+    # repair happens on the user's machine, for bottle pours as well as source
+    # builds.
+    resign = libexec/"resign-relocated-libraries"
+    resign.write <<~SH
+      #!/bin/sh
+      # Re-sign every Mach-O file in the keg whose signature no longer matches
+      # its contents. `codesign -v` reports linker-signed libraries as "not
+      # signed at all"; those load fine and are deliberately left alone.
+      set -eu
+      root=$(cd "$(dirname "$0")/.." && pwd)
+
+      resign_if_broken() {
+        codesign -v "$1" 2>&1 | grep -q 'invalid signature' || return 0
+        # --preserve-metadata keeps the bundle identifier, so re-signing does
+        # not change an app bundle's designated requirement.
+        codesign --force --sign - \\
+          --preserve-metadata=identifier,entitlements,requirements,flags,runtime \\
+          "$1" || echo "warning: could not re-sign $1" >&2
+      }
+
+      find "$root/libexec/venv" -type f \\( -name '*.dylib' -o -name '*.so' \\) |
+        while IFS= read -r lib; do
+          resign_if_broken "$lib"
+        done
+
+      # The .app carries the TCC permissions; a broken seal re-prompts for them.
+      [ -d "$root/Trnscrb.app" ] && resign_if_broken "$root/Trnscrb.app"
+      exit 0
+    SH
+    chmod 0755, resign
+  end
+
+  post_install_steps do
+    run "libexec/resign-relocated-libraries",
+        base:           :prefix,
+        writable_base:  :prefix,
+        writable_paths: ["libexec/venv", "Trnscrb.app"],
+        print_stdout:   true
   end
 
   def caveats
