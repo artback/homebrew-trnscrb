@@ -1,5 +1,5 @@
 class Trnscrb < Formula
-  desc "Offline meeting transcription for macOS — auto-detects meetings, transcribes locally"
+  desc "Offline meeting transcription for macOS that auto-detects your meetings"
   homepage "https://github.com/artback/trnscrb"
   url "https://github.com/artback/trnscrb/archive/refs/tags/v0.57.0.tar.gz"
   sha256 "102d48f02a6c01732d8ab79fced225f0d715e831aa473aece7ee959b43b2fb68"
@@ -7,12 +7,12 @@ class Trnscrb < Formula
   head "https://github.com/artback/trnscrb.git", branch: "main"
 
   depends_on "ffmpeg"
+  depends_on :macos
   depends_on "python@3.12"
   depends_on "uv"
-  depends_on :macos
 
   def install
-    python = Formula["python@3.12"].opt_bin / "python3.12"
+    python = formula_opt_bin("python@3.12") / "python3.12"
     venv = libexec / "venv"
     system "uv", "venv", venv.to_s, "--python", python.to_s
     system "uv", "pip", "install", "--python", (venv / "bin" / "python").to_s, buildpath.to_s
@@ -27,14 +27,27 @@ class Trnscrb < Formula
              prefix / "Trnscrb.app", opt_bin / "trnscrb"
     end
 
-    # Homebrew relocates the keg's Mach-O files after `install` returns,
-    # rewriting their load commands in place. That edit invalidates the ad-hoc
-    # signature each file shipped with, and macOS refuses to load a library
-    # whose signature no longer matches its contents — which is how the
-    # vendored audio libraries came to kill the MCP server on a fresh install.
-    # `post_install_steps` runs this script after the relocation pass, so the
-    # repair happens on the user's machine, for bottle pours as well as source
-    # builds.
+    # Every library in this venv was already relocated by the wheel that built
+    # it: they find each other through @loader_path and carry ad-hoc signatures
+    # that match their contents exactly. Homebrew's relocation pass has nothing
+    # to add here and three ways to break it — it rewrites dylib IDs to absolute
+    # Cellar paths, invalidating the signature of every file it touches; it
+    # deletes the rpaths torchcodec needs to reach libtorch; and it raises
+    # outright on libraries whose Mach-O header is too small to hold the longer
+    # path, abandoning the rest of the keg and failing the install.
+    #
+    # So hide them from it. Gzipped, they are not Mach-O files and the pass
+    # walks straight past; `post_install_steps` unpacks them once it has run.
+    # Costs a few seconds each way and leaves the wheels' own linkage intact.
+    system "sh", "-c", <<~SH
+      find #{libexec}/venv -type f \\( -name '*.dylib' -o -name '*.so' \\) -print0 |
+        xargs -0 -n 8 -P #{Hardware::CPU.cores} gzip -1 -n
+    SH
+
+    # Unpack those libraries again once the pass has run, and re-sign anything
+    # Homebrew did modify and leave with a signature that no longer matches its
+    # contents — the .app wrapper, and any Mach-O file outside the venv. This
+    # runs on bottle pours as well as source builds.
     resign = libexec/"resign-relocated-libraries"
     resign.write <<~SH
       #!/bin/sh
@@ -52,6 +65,11 @@ class Trnscrb < Formula
           --preserve-metadata=identifier,entitlements,requirements,flags,runtime \\
           "$1" || echo "warning: could not re-sign $1" >&2
       }
+
+      # Unpack the venv libraries the formula gzipped so the relocation pass
+      # would walk past them.
+      find "$root/libexec/venv" -type f \\( -name '*.dylib.gz' -o -name '*.so.gz' \\) -print0 |
+        xargs -0 -n 8 -P 4 gunzip -f
 
       find "$root/libexec/venv" -type f \\( -name '*.dylib' -o -name '*.so' \\) |
         while IFS= read -r lib; do
