@@ -76,8 +76,20 @@ class Trnscrb < Formula
           resign_if_broken "$lib"
         done
 
-      # The .app carries the TCC permissions; a broken seal re-prompts for them.
-      [ -d "$root/Trnscrb.app" ] && resign_if_broken "$root/Trnscrb.app"
+      # The .app carries the TCC permissions; a broken seal re-prompts for
+      # them. Re-sign with the stable local signing identity when present —
+      # its grant is keyed to the certificate, so it survives upgrades —
+      # else fall back to ad-hoc.
+      if [ -d "$root/Trnscrb.app" ] && codesign -v "$root/Trnscrb.app" 2>&1 | grep -q 'invalid signature'; then
+        identity=$(security find-identity -v -p codesigning 2>/dev/null | grep -o '"trnscrb-local-signing"' | head -1 | tr -d '"')
+        if [ -n "$identity" ]; then
+          codesign --force --sign "$identity" \
+            --preserve-metadata=identifier,entitlements,requirements,flags,runtime \
+            "$root/Trnscrb.app" || echo "warning: could not re-sign $root/Trnscrb.app" >&2
+        else
+          resign_if_broken "$root/Trnscrb.app"
+        fi
+      fi
       exit 0
     SH
     chmod 0755, resign
