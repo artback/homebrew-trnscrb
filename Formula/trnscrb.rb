@@ -98,6 +98,24 @@ class Trnscrb < Formula
 
   def caveats
     <<~EOS
+      Permissions trnscrb asks for — granted once each, in
+      System Settings → Privacy & Security, and attributed to Trnscrb
+      rather than your terminal:
+
+        Microphone                 meetings and dictation
+        Screen & System Audio      the other participants' audio
+        Input Monitoring           the push-to-talk key
+        Accessibility              typing dictation into your text box
+        Automation (Apple Events)  detecting a meeting tab in a browser
+        Notifications              "saved" / "transcribing" toasts
+
+      Nothing else is requested: no Full Disk Access, no camera, no
+      contacts, no account. Each feature degrades on its own without its
+      grant — dictation still works, it just leaves the text on the
+      clipboard for you to paste.
+      What each grant can and cannot see:
+        https://github.com/artback/trnscrb#permissions
+
       Run the setup wizard (permissions, models, launch at login,
       and the ~/Applications/Trnscrb.app permission wrapper):
         trnscrb install
