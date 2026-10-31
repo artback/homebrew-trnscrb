@@ -1,8 +1,8 @@
 class Trnscrb < Formula
   desc "Offline meeting transcription for macOS that auto-detects your meetings"
   homepage "https://github.com/artback/trnscrb"
-  url "https://github.com/artback/trnscrb/archive/refs/tags/v0.71.0.tar.gz"
-  sha256 "85807021319cac597fbe5965b178c968dab36b17a83c3184f8d0110ac712d231"
+  url "https://github.com/artback/trnscrb/archive/refs/tags/v0.71.1.tar.gz"
+  sha256 "7c585ddefa49a1ce0ae00532f678a721d2dd0cc5522def7418df66b35e0608c9"
   license "MIT"
   head "https://github.com/artback/trnscrb.git", branch: "main"
 
@@ -134,5 +134,13 @@ class Trnscrb < Formula
 
   test do
     assert_match "trnscrb", shell_output("#{bin}/trnscrb --help")
+    # Import every module so an undeclared runtime dependency (v0.71.0
+    # shipped trnscrb.push without httpx and crash-looped on start) fails
+    # `brew test` instead of the user's first launch.
+    assert_system (libexec / "venv/bin/python").to_s, "-c", <<~PY
+      import importlib, pkgutil, trnscrb
+      for m in pkgutil.walk_packages(trnscrb.__path__, "trnscrb."):
+          importlib.import_module(m.name)
+    PY
   end
 end
