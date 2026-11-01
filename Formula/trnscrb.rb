@@ -1,8 +1,8 @@
 class Trnscrb < Formula
   desc "Offline meeting transcription for macOS that auto-detects your meetings"
   homepage "https://github.com/artback/trnscrb"
-  url "https://github.com/artback/trnscrb/archive/refs/tags/v0.73.1.tar.gz"
-  sha256 "950ff45a627827126580c09eb3c9eb562df0a7d0e24da31a607d54bdc19184c1"
+  url "https://github.com/artback/trnscrb/archive/refs/tags/v0.73.2.tar.gz"
+  sha256 "206ff78090c26ef837101484b6b9a7ca96d58cf91cd6dacfebab88bfe1906395"
   license "MIT"
   head "https://github.com/artback/trnscrb.git", branch: "main"
 
